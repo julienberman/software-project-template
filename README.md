@@ -32,6 +32,9 @@ docker compose up --build
 - Frontend: `http://localhost:3000`
 - Backend health: `http://localhost:8000/health`
 
+6. Set up for local development (if desired):
+- Frontend: `cd frontend && pnpm install`
+- Backend: `cd backend && uv sync`
 
 ## Rename Guidance
 
