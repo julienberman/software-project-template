@@ -1,4 +1,4 @@
-# Project Template
+# Software Project Template
 
 This repository is a full-stack template with a minimal working scaffold:
 - Next.js frontend (`frontend/`)
