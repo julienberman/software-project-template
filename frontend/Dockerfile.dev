@@ -1,0 +1,52 @@
+# Copied from Next.js Dockerfile example at this link:
+# https://github.com/kristiyan-velkov/docker-nextjs-sample/blob/3d7cd2d9ab13f19bbba780e095d99f6bdadc89d4/Dockerfile.dev
+# Modifications: 
+#   - Changed "/app" to "/frontend" to better match local filesystem structure
+#   - Added a few additional clarifying comments
+#   - Changed how ENV variables are incorporated
+#   - Removed branching, retained pnpm only
+
+# ============================================
+# Development Dockerfile for Next.js
+# ============================================
+# IMPORTANT: Node.js version maintenance
+# This Dockerfile uses a pinned Node.js tag for reproducible builds. Regularly validate and update NODE_VERSION for security and compatibility.
+# For supply-chain hardening, you can switch to a hardened base (e.g. Docker Hardened Images / dhi.io) and use the same pattern.
+# See: https://github.com/vercel/next.js/tree/canary/examples/with-docker
+ARG NODE_VERSION=24.14.0-slim
+
+FROM node:${NODE_VERSION} AS dev
+
+# Set working directory
+WORKDIR /frontend
+
+# Copy package-related files first to leverage Docker's caching mechanism
+COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* .npmrc* ./
+
+# Install project dependencies (frozen lockfile for reproducible installs)
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+  if [ -f pnpm-lock.yaml ]; then \
+    corepack enable pnpm && pnpm install --frozen-lockfile; \
+  else \
+    echo "No lockfile found." && exit 1; \
+  fi
+
+# Copy the rest of the application source code into the container
+# (Compose Watch will sync changes at runtime; this is the initial state)
+COPY . .
+
+# Ensure file watching works inside Docker (e.g. with Compose Watch or bind mounts)
+ENV WATCHPACK_POLLING=true
+
+# Change ownership so the node user can write (e.g. .next, caches)
+RUN chown -R node:node /frontend
+
+# Switch to non-root user for security best practices
+USER node
+
+# Expose the port used by the Next.js development server
+EXPOSE 3000
+
+# Run dev script at $FRONTEND_HOSTNAME and $FRONTEND_PORT, which are set in the local .env file
+# If these are not set, revert to defaults 
+CMD ["sh", "-c", "exec pnpm dev --hostname ${FRONTEND_HOSTNAME:-0.0.0.0} --port ${FRONTEND_PORT:-3000}"]

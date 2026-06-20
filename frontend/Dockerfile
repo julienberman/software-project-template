@@ -1,9 +1,11 @@
 # Copied from Next.js Dockerfile example at this link:
-# https://github.com/vercel/next.js/blob/b216be9c35691468e333c2489f868d76c1882fee/examples/with-docker/Dockerfile
+# https://github.com/kristiyan-velkov/docker-nextjs-sample/blob/3d7cd2d9ab13f19bbba780e095d99f6bdadc89d4/Dockerfile
 # Modifications: 
 #   - Changed "/app" to "/frontend" to better match local filesystem structure
 #   - Added a few additional clarifying comments
 #   - Added explicit handling for Railway builds
+#   - Removed branching; retained pnpm only
+
 # ============================================
 # Stage 1: Dependencies Installation Stage
 # ============================================
@@ -18,8 +20,6 @@ FROM node:${NODE_VERSION} AS dependencies
 
 # Set working directory
 WORKDIR /frontend
-
-RUN corepack enable
 
 # Copy package-related files first to leverage Docker's caching mechanism
 COPY package.json pnpm-lock.yaml* ./

@@ -1,43 +1,34 @@
 services:
 
   database:
-    image: mongo:8
-    container_name: project-template-database
+    image: postgres:17
+    container_name: software-project-template-database
+    environment:
+      POSTGRES_DB: software_project_template
+      POSTGRES_USER: software_project_template
+      POSTGRES_PASSWORD: software_project_template
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-    volumes:
-      - database_data:/data/db
-
-  redis:
-    image: redis:7
-    container_name: project-template-redis
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "pg_isready -U software_project_template -d software_project_template"]
       interval: 10s
       timeout: 10s
       retries: 5
       start_period: 10s
+    volumes:
+      - database_data:/var/lib/postgresql/data
 
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
-    container_name: project-template-backend
+      dockerfile: Dockerfile.dev
+    container_name: software-project-template-backend
     depends_on:
       database:
         condition: service_healthy
         restart: true
-      redis:
-        condition: service_healthy
     env_file:
       - .env
     ports:
       - "${PORT:-8000}:${PORT:-8000}"
-    command: ["uv", "run", "uvicorn", "app.main:app", "--host", "${API_HOST:-0.0.0.0}", "--port", "${PORT:-8000}", "--reload"]
     develop:
       watch:
         - action: sync
@@ -51,21 +42,20 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
-      target: dev
-    container_name: project-template-frontend
+      dockerfile: Dockerfile.dev
+    container_name: software-project-template-frontend
     depends_on:
       backend:
         condition: service_started
     env_file:
       - .env
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:${FRONTEND_PORT:-3000}"
     develop:
       watch:
         - action: sync
           path: ./frontend
-          target: /app
+          target: /frontend
           ignore:
             - node_modules/
         - action: rebuild

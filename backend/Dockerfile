@@ -9,11 +9,8 @@ RUN uv sync --frozen --no-install-project
 
 COPY . .
 
-ENV HOST=0.0.0.0
-ENV PORT=8000
-
-EXPOSE 8000
-
-CMD uv run uvicorn app.main:app --host ${HOST} --port ${PORT}
+# Run app at $HOSTNAME and $PORT, which are set in the backend service in Railway
+# If these are not set, revert to defaults 
+CMD uv run uvicorn app.main:app --host ${HOSTNAME-0.0.0.0} --port ${PORT-8000}
 
 
