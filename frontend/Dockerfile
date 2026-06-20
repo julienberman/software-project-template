@@ -1,52 +1,116 @@
-ARG NODE_VERSION=20-slim
+# Copied from Next.js Dockerfile example at this link:
+# https://github.com/vercel/next.js/blob/b216be9c35691468e333c2489f868d76c1882fee/examples/with-docker/Dockerfile
+# Modifications: 
+#   - Changed "/app" to "/frontend" to better match local filesystem structure
+#   - Added a few additional clarifying comments
+#   - Added explicit handling for Railway builds
+# ============================================
+# Stage 1: Dependencies Installation Stage
+# ============================================
 
-FROM node:${NODE_VERSION} AS base
+# IMPORTANT: Node.js Version Maintenance
+# This Dockerfile uses Node.js 24.13.0-slim, which was the latest LTS version at the time of writing.
+# To ensure security and compatibility, regularly update the NODE_VERSION ARG to the latest LTS version.
+ARG NODE_VERSION=24.13.0-slim
 
-WORKDIR /app
+# Define dependencies stage
+FROM node:${NODE_VERSION} AS dependencies
+
+# Set working directory
+WORKDIR /frontend
 
 RUN corepack enable
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# Copy package-related files first to leverage Docker's caching mechanism
+COPY package.json pnpm-lock.yaml* ./
 
-FROM base AS dependencies
+# Install project dependencies with frozen lockfile for reproducible builds
+# NOTE: If using railway, must add id=... to the mount flag
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    if [ -f pnpm-lock.yaml ]; then \
+        corepack enable pnpm && pnpm install --frozen-lockfile; \
+    else \
+        echo "No lockfile found." && exit 1; \
+    fi
 
-RUN --mount=type=cache,id=s/a12d5666-07e4-4f62-a76e-50fc61e055ac,target=/root/.local/share/pnpm/store \
-  pnpm install --frozen-lockfile
+# ============================================
+# Stage 2: Build Next.js application in standalone mode
+# ============================================
 
-FROM base AS dev
+# Define builder stage
+FROM node:${NODE_VERSION} AS builder
 
-ENV NODE_ENV=development
+# Set working directory
+WORKDIR /frontend
 
-COPY --from=dependencies /app/node_modules ./node_modules
+# Copy project dependencies from dependencies stage filesystem
+COPY --from=dependencies /frontend/node_modules ./node_modules
+
+# Copy application source code
 COPY . .
-
-EXPOSE 3000
-
-CMD ["pnpm", "dev", "--hostname", "0.0.0.0", "--port", "3000"]
-
-FROM base AS builder
 
 ENV NODE_ENV=production
 
-COPY --from=dependencies /app/node_modules ./node_modules
-COPY . .
+# Next.js collects completely anonymous telemetry data about general usage.
+# Learn more here: https://nextjs.org/telemetry
+# Uncomment the following line in case you want to disable telemetry during the build.
+# ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN pnpm build
+# Build Next.js application
+# If you want to speed up Docker rebuilds, you can cache the build artifacts
+# by adding: --mount=type=cache,target=/app/.next/cache
+# This caches the .next/cache directory across builds, but it also prevents
+# .next/cache/fetch-cache from being included in the final image, meaning
+# cached fetch responses from the build won't be available at runtime.
+RUN if [ -f pnpm-lock.yaml ]; then \
+        corepack enable pnpm && pnpm build; \
+    else \
+        echo "No lockfile found." && exit 1; \
+    fi
 
+
+# ============================================
+# Stage 3: Run Next.js application
+# ============================================
+
+# Define runner stage
 FROM node:${NODE_VERSION} AS runner
 
-WORKDIR /app
+# Set working directory
+WORKDIR /frontend
 
+# Set production environment variables
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV HOSTNAME=0.0.0.0
+ENV HOSTNAME="0.0.0.0"
 
-COPY --from=builder --chown=node:node /app/public ./public
-COPY --from=builder --chown=node:node /app/.next/standalone ./
-COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+# Next.js collects completely anonymous telemetry data about general usage.
+# Learn more here: https://nextjs.org/telemetry
+# Uncomment the following line in case you want to disable telemetry during the run time.
+# ENV NEXT_TELEMETRY_DISABLED=1
 
+# Copy production assets from builder stage filesystem
+COPY --from=builder --chown=node:node /frontend/public ./public
+
+# Set the correct permissions for prerender cache
+RUN mkdir .next
+RUN chown node:node .next
+
+# Automatically leverage output traces to reduce image size
+# https://nextjs.org/docs/advanced-features/output-file-tracing
+COPY --from=builder --chown=node:node /frontend/.next/standalone ./
+COPY --from=builder --chown=node:node /frontend/.next/static ./.next/static
+
+# If you want to persist the fetch cache generated during the build so that
+# cached responses are available immediately on startup, uncomment this line:
+# COPY --from=builder --chown=node:node /frontend/.next/cache ./.next/cache
+
+# Switch to non-root user for security best practices
 USER node
 
+# Expose port 3000 to allow HTTP traffic
 EXPOSE 3000
 
+# Start Next.js standalone server
 CMD ["node", "server.js"]
+
