@@ -1,29 +1,19 @@
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 
-from app.api.endpoints import health
+from app.api.endpoints import example_endpoint, health
 from app.configs.settings import get_settings
-from app.infra.database import create_database_client
-
-
-@asynccontextmanager
-async def app_lifespan(app: FastAPI):
-    settings = get_settings()
-    database_client = create_database_client(settings)
-    app.state.database = database_client[settings.database_name]
-
-    yield
-
-    database_client.close()
+from app.init.dicontainer import AppContainer
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(
-        title="project-template-backend",
-        lifespan=app_lifespan,
-    )
+    app = FastAPI(title="software-project-template-backend")
+    container = AppContainer()
+    container.settings.from_dict(get_settings().model_dump())
+    setattr(app, "container", container)
+
+    container.wire(modules=[example_endpoint])
     app.include_router(health.router)
+    app.include_router(example_endpoint.router)
     return app
 
 
