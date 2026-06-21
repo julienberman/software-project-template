@@ -1,13 +1,44 @@
-.DS_Store
-.env
-.venv
-venv/
+# Bytecode and caches
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-.coverage
-htmlcov/
-*.egg-info/
+
+# Dependencies (installed inside the image, never copy from host)
+env/
+venv/
+.venv/
+
+# Environment files (avoid leaking secrets into the build context)
+.env*
+
+# Log files
+*.log
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker files (reduce build context; not needed inside the image)
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+compose*.yaml
+
+# Documentation (not needed in the image)
+*.md
+docs/
+
+# CI/CD (not needed in the image)
+.github/
+.gitlab-ci.yml
+
+# Cache and temporary directories
+.cache/
+.tmp/
+.temp/
+
+# OS-specific files
+.DS_Store

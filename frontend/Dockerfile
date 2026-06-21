@@ -81,8 +81,6 @@ WORKDIR /frontend
 
 # Set production environment variables
 ENV NODE_ENV=production
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
@@ -111,6 +109,6 @@ USER node
 # Expose port 3000 to allow HTTP traffic
 EXPOSE 3000
 
-# Start Next.js standalone server
-CMD ["node", "server.js"]
-
+# Start Next.js standalone server at $FRONTEND_HOSTNAME and $FRONTEND_PORT, which are set in the frontend service in Railway
+# If these are not set, revert to defaults 
+CMD ["sh", "-c", "HOSTNAME=${FRONTEND_HOSTNAME:-0.0.0.0} PORT=${FRONTEND_PORT:-3000} exec node server.js"]
