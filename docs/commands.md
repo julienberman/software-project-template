@@ -17,6 +17,11 @@ Commands must be run from the repository root.
 - `docker compose down` -> tear down all running docker containers
 
 
+## Template Initialization
+
+- `./init_template.sh <project-slug>` -> replace template slugs, stamp the initial decision date, and generate the project README
+
+
 ## Backend
 - `docker compose exec backend uv run ruff check .` -> run backend lint checks
 - `docker compose exec backend uv run ruff format --check .` run backend format checks
@@ -28,4 +33,3 @@ Commands must be run from the repository root.
 - `docker compose exec frontend pnpm lint` -> run frontend lint checks
 - `docker compose exec frontend pnpm format:check` -> run frontend format checks
 - `docker compose exec frontend pnpm typecheck` -> run frontend type checks
-

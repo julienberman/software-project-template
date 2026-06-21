@@ -30,9 +30,10 @@ rm .env.example
 
 ## The `init_template.sh` script
 
-Throughout this template, the tokens `software-project-template` and `software_project_template` are used as stand-ins for the actual project name. In addition, the `README.md` and `AGENTS.md` files include information _about the template repository_, and should be replaced with information about the actual project. The `init_template.sh` script:
+Throughout this template, the tokens `software-project-template` and `software_project_template` are used as stand-ins for the actual project name. In addition, the `README.md` file includes information _about the template repository_, and should be replaced with information about the actual project. The `init_template.sh` script:
 - Replaces `software-project-template` and `software_project_template` in all project files (except generated and binary files) with the slug you pass.
-- Replaces `README.md` and `AGENTS.md` with blank files.
+- Replaces `README.md` with a blank boilerplate file.
+- Replaces "[DATE]" in `docs/documentation.md` with the current date (upon initialization)
 
 ## Local Development
 

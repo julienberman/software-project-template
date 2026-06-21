@@ -1,102 +1,86 @@
 #!/usr/bin/env bash
-
 set -euo pipefail
 
-DEFAULT_TOKEN="project-template"
+HYPHEN_TOKEN="software-project-template"
+SNAKE_TOKEN="software_project_template"
 
 usage() {
   cat <<'EOF'
 Usage: ./init_template.sh <project-slug>
+       ./init_template.sh --help
 
-Slug requirements:
-- lowercase letters, numbers, and hyphens only
-- no leading or trailing hyphen
+Initialize a repository from the software project template.
+
+Arguments:
+  project-slug   Lowercase letters, numbers, and hyphens only.
+                 Must not start or end with a hyphen.
+
+Options:
+  -h, --help     Show this help message.
 EOF
+}
+
+die() {
+  echo "Error: $*" >&2
+  echo >&2
+  usage >&2
+  exit 1
 }
 
 validate_slug() {
   local slug="$1"
-  if [[ ! "$slug" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
-    echo "Invalid slug: $slug" >&2
-    usage
-    exit 1
-  fi
-}
 
-is_skipped_file() {
-  local file_path="$1"
-  case "$file_path" in
-    *.png|*.jpg|*.jpeg|*.gif|*.webp|*.ico|*.pdf|*.woff|*.woff2|*.ttf|*.eot|*.pyc|*.pyo|*.so|*.dylib|*.zip|*.gz|*.tar|*.tgz|*.jar|*.mp4|*.mov)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
-replace_token() {
-  local root_dir="$1"
-  local project_slug="$2"
-  local scanned=0
-  local updated=0
-
-  while IFS= read -r -d '' file_path; do
-    scanned=$((scanned + 1))
-
-    if is_skipped_file "$file_path"; then
-      continue
-    fi
-
-    if [[ "$file_path" == "$root_dir/init_template.sh" ]]; then
-      continue
-    fi
-
-    if ! grep -Iq . "$file_path"; then
-      continue
-    fi
-
-    if ! grep -q "$DEFAULT_TOKEN" "$file_path"; then
-      continue
-    fi
-
-    sed -i '' "s/$DEFAULT_TOKEN/$project_slug/g" "$file_path"
-    updated=$((updated + 1))
-  done < <(
-    find "$root_dir" \
-      -path "$root_dir/.git" -prune -o \
-      -path "$root_dir/.next" -prune -o \
-      -path "$root_dir/.venv" -prune -o \
-      -path "$root_dir/node_modules" -prune -o \
-      -path "$root_dir/__pycache__" -prune -o \
-      -path "$root_dir/backend/.venv" -prune -o \
-      -path "$root_dir/frontend/.next" -prune -o \
-      -path "$root_dir/frontend/node_modules" -prune -o \
-      -type f -print0
-  )
-
-  echo "Scanned $scanned files"
-  echo "Updated $updated files"
+  [[ "$slug" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] \
+    || die "Invalid slug: $slug"
 }
 
 main() {
-  if [[ $# -ne 1 ]]; then
-    usage
-    exit 1
+  case "${1:-}" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+  esac
+
+  [[ $# -eq 1 ]] || die "Expected exactly one project slug."
+
+  local project_slug_hyphen="$1"
+  validate_slug "$project_slug_hyphen"
+
+  local project_slug_snake="${project_slug_hyphen//-/_}"
+  local current_date="$(date +%F)"
+
+  local root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+  local decisions_file="$root_dir/docs/decisions.md"
+
+  local -a files=()
+  mapfile -d '' files < <(
+    find "$root_dir" \
+      \( -name .git -o -name .next -o -name .venv -o -name node_modules -o -name __pycache__ \) -prune -o \
+      -type f \
+      ! -name init_template.sh \
+      -exec grep -IlZ -E "$HYPHEN_TOKEN|$SNAKE_TOKEN" {} +
+  )
+
+  if ((${#files[@]})); then
+    perl -pi -e "
+      s/\Q$HYPHEN_TOKEN\E/$project_slug_hyphen/g;
+      s/\Q$SNAKE_TOKEN\E/$project_slug_snake/g;
+    " "${files[@]}"
   fi
 
-  local project_slug="$1"
-  validate_slug "$project_slug"
-
-  if [[ "$project_slug" == "$DEFAULT_TOKEN" ]]; then
-    echo "Project slug matches template token; nothing to replace."
-    exit 0
+  if [[ -f "$decisions_file" ]]; then
+    perl -pi -e "s/\[DATE\]/$current_date/g" "$decisions"
   fi
 
-  local root_dir
-  root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  cat > "$root_dir/README.md" <<EOF
+## $project_slug_hyphen
 
-  replace_token "$root_dir" "$project_slug"
+This repository was created from [julienberman/software-project-template](https://github.com/julienberman/software-project-template) and by default shares its dependencies and prerequisites.
+EOF
+
+  echo "Updated ${#files[@]} template files"
+  echo "Wrote README.md"
 }
 
 main "$@"
